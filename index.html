@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UAQTransit — Upgraded</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+  <style>
+    :root {
+      --bg-light: #f4f6f9;
+      --bg-white: #ffffff;
+      --text-primary: #2d3142;
+      --text-secondary: #6c757d;
+      --accent-primary: #6f42c1;
+      --accent-secondary: #fd7e14;
+    }
+    
+    html, body {
+      height: 100%;
+      background-color: var(--bg-light);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: 420px;
+      height: 100%;
+      max-height: 880px;
+      background: var(--bg-light);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border: 1px solid #e0e0e0;
+      margin: auto;
+    }
+
+    main.content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      padding-bottom: 70px;
+    }
+    
+    .card-app {
+      background: var(--bg-white);
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      color: var(--text-primary);
+    }
+    .fade-in { animation: fadeIn 300ms ease-out; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform:none; } }
+
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 70px;
+      background: var(--bg-white);
+      border-top: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+      z-index: 1000;
+    }
+
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border: none;
+      background: transparent;
+      padding: 8px;
+      width: 65px; 
+    }
+    .nav-btn svg {
+      width: 24px;
+      height: 24px;
+      margin-bottom: 2px;
+      stroke-width: 2;
+    }
+    .nav-btn.active {
+      color: var(--accent-primary);
+    }
+    .nav-btn.active svg {
+      stroke: var(--accent-primary);
+    }
+    
+    #map-container {
+      height: 100%;
+      width: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    
+    .planner-ui {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 10;
+      padding: 16px;
+    }
+    
+    .planner-ui .form-control {
+      font-size: 1rem;
+      padding: 12px;
+      background: var(--bg-white);
+      border: 1px solid #ddd;
+      font-weight: 500;
+    }
+    .planner-ui .form-control:focus, .planner-ui .form-control.active {
+      background: #fff;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 0.25rem rgba(111, 66, 193, 0.25);
+    }
+    .planner-ui .form-control::placeholder {
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    
+    .saved-place-btn {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--bg-white);
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      padding: 6px 12px;
+    }
+    .saved-place-btn:hover {
+      background: var(--bg-light);
+    }
+
+    .form-check-label { color: var(--text-primary); font-weight: 500;} /* Changed */
+    .form-check-input:checked {
+      background-color: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+    
+    .btn-primary {
+      background: var(--accent-primary);
+      border-color: var(--accent-primary);
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: #5a359a;
+      border-color: #5a359a;
+    }
+    .btn-secondary {
+      background: var(--bg-light);
+      border-color: #ddd;
+      color: var(--text-primary);
+    }
+    
+    .route-option-card, .taxi-option-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .route-option-card:hover, .taxi-option-card:hover {
+      background: #fafafa;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .route-option-card.active {
+      border-color: var(--accent-primary);
+      background: #f8f5fe;
+    }
+    .congestion-badge, .points-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .congestion-green { background: #d4edda; color: #155724; }
+    .congestion-orange { background: #fff3cd; color: #856404; }
+    .congestion-red { background: #f8d7da; color: #721c24; }
+    .points-badge { background: #d4edda; color: #155724; }
+    
+    .route-leg {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+    .route-leg-icon {
+      font-size: 1rem;
+      width: 24px;
+      text-align: center;
+    }
+    .route-leg-details {
+      font-size: 0.9rem;
+    }
+    .route-leg-line-metro {
+      color: #d43f3a;
+      font-weight: 700;
+    }
+    .route-leg-line-bus {
+      color: #3498db;
+      font-weight: 700;
+    }
+    
+    .taxi-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: #eee;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .content-page { padding: 16px; }
+    
+    .avatar-large {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--bg-white);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .ad-banner-stub {
+      background: #e9ecef;
+      border: 1px dashed #ccc;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 24px;
+      border-radius: 12px; 
+      margin-top: 16px;
+    }
+    
+    
+    .transit-stop-icon {
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      border: 2px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .metro-icon {
+      background-color: #d43f3a; 
+    }
+    .bus-icon {
+      background-color: #3498db; 
+    }
+
+    .search-list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--bg-light);
+      cursor: pointer;
+    }
+    .search-list-item:hover {
+      background-color: #f8f9fa;
+    }
+    .search-list-item-icon {
+      font-size: 1.2rem;
+    }
+    
+    /* Ensure Leaflet UI is above our UI */
+    .leaflet-control-container {
+        z-index: 100;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="phone shadow-sm">
+    <main id="app" class="content"></main>
+
+    <div class="bottom-nav">
+      <button class="nav-btn" data-page="home" title="Home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11.5L12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+        <div>Home</div>
+      </button>
+      
+      <button class="nav-btn" data-page="map" title="Map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4L1 6z"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="15" y1="2" x2="15" y2="22"/></svg>
+        <div>Map</div>
+      </button>
+      
+      <button class="nav-btn" data-page="rewards" title="Rewards">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4h-6"/><path d="M12 6v2m0 8v2"/></svg>
+        <div>Rewards</div>
+      </button>
+      
+      <button class="nav-btn" data-page="profile" title="Profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>
+        <div>Profile</div>
+      </button>
+    </div>
+  </div>
+
+  <div class="modal fade" id="redeemModal" tabindex="-1" aria-labelledby="redeemModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="redeemModalLabel">Coupon Redeemed!</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="text-secondary">Show this code to the cashier.</p>
+          
+          <h6 class="fw-bold mt-4">QR Code</h6>
+          <img id="qrCodeImg" src="" alt="QR Code" width="200" height="200" class="img-fluid mb-3">
+          
+          <h6 class="fw-bold mt-3">Barcode</h6>
+          <img id="barcodeImg" src="" alt="Barcode" class="img-fluid" style="height: 80px; width: 100%; object-fit: contain;">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script> 
+    const MOCK_REWARDS = [
+      { id: 'r1', type: 'partner', title: '15% off at % Arabica', partner: 'Arabica Cafe', points: 500, icon: '☕' },
+      { id: 'r2', type: 'partner', title: 'AED 20 off at Union Coop', partner: 'Union Cooperative', points: 1000, icon: '🛒' },
+      { id: 'r3', type: 'partner', title: '10% off at Pull & Bear', partner: 'Pull & Bear', points: 750, icon: '👕' },
+      { id: 'r4', type: 'transit', title: '1 Free Metro Ride', points: 300, icon: '🚇' },
+      { id: 'r5', type: 'partner', title: 'AED 5 Ride Credit', partner: 'Careem', points: 400, icon: '🚗' }
+    ];
+    
+    const MOCK_ALERTS = [
+      { id: 'a1', type: 'metro', line: 'Red Line', severity: 'warning', message: 'Minor delays between Union and Burjuman stations due to signal issue.' },
+      { id: 'a2', type: 'bus', line: 'Route 29', severity: 'info', message: 'Stop at Dubai Mall relocated 50m north due to construction.' },
+      { id: 'a3', type: 'metro', line: 'Green Line', severity: 'danger', message: 'Service suspended at Al Ras station. Shuttle buses are running.' }
+    ];
+    
+    const MOCK_BADGES = [ /* ... */ ];
+    const MOCK_LEADERBOARD = [ /* ... */ ];
+    const MOCK_CHALLENGE = { /* ... */ };
+    
+    const MOCK_ROUTE_OPTIONS = [
+        { id: 'r1', time: '28 min', congestion: 'low', points: 15, legs: [
+            { type: 'walk', details: 'Walk 3 min' },
+            { type: 'metro', line: 'Red', details: 'Union to Burj Khalifa (5 stops)' },
+            { type: 'walk', details: 'Walk 2 min' }
+        ]},
+        { id: 'r2', time: '35 min', congestion: 'mid', points: 10, legs: [
+            { type: 'bus', line: '29', details: 'Ghubaiba to Dubai Mall (8 stops)' },
+            { type: 'walk', details: 'Walk 5 min' }
+        ]},
+        { id: 'r3', time: '42 min', congestion: 'low', points: 10, legs: [
+            { type: 'bus', line: 'X28', details: 'Union MS to Dubai Mall (4 stops)' }
+        ]}
+    ];
+
+    const MOCK_TRANSIT_STOPS = [
+        { type: 'metro', line: 'Red', name: 'Centrepoint (Rashidiya)', coords: [25.234, 55.408] },
+        { type: 'metro', line: 'Red', name: 'Emirates', coords: [25.242, 55.358] },
+        { type: 'metro', line: 'Red', name: 'Airport T3', coords: [25.252, 55.340] },
+        { type: 'metro', line: 'Red', name: 'Airport T1', coords: [25.260, 55.333] },
+        { type: 'metro', line: 'Red', name: 'Deira City Centre', coords: [25.252, 55.333] },
+        { type: 'metro', line: 'Red', name: 'Union', coords: [25.2643, 55.3134] },
+        { type: 'metro', line: 'Red', name: 'BurJuman', coords: [25.253, 55.305] },
+        { type: 'metro', line: 'Red', name: 'Financial Centre', coords: [25.2098, 55.2774] },
+        { type: 'metro', line: 'Red', name: 'Burj Khalifa/Dubai Mall', coords: [25.1972, 55.2657] },
+        { type: 'metro', line: 'Red', name: 'Business Bay', coords: [25.1866, 55.2561] },
+        { type: 'metro', line: 'Red', name: 'Mall of the Emirates', coords: [25.1189, 55.2017] },
+        { type: 'metro', line: 'Red', name: 'Sobha Realty', coords: [25.079, 55.156] },
+        { type: 'metro', line: 'Red', name: 'DMCC', coords: [25.070, 55.139] },
+        { type: 'metro', line: 'Red', name: 'Jabal Ali', coords: [25.053, 55.122] },
+        
+        { type: 'metro', line: 'Green', name: 'Etisalat', coords: [25.280, 55.409] },
+        { type: 'metro', line: 'Green', name: 'Al Qusais', coords: [25.281, 55.399] },
+        { type: 'metro', line: 'Green', name: 'Stadium', coords: [25.275, 55.357] },
+        { type: 'metro', line: 'Green', name: 'Al Nahda', coords: [25.276, 55.369] },
+        { type: 'metro', line: 'Green', name: 'Al Fahidi', coords: [25.261, 55.299] },
+        { type: 'metro', line: 'Green', name: 'Oud Metha', coords: [25.239, 55.316] },
+        { type: 'metro', line: 'Green', name: 'Creek', coords: [25.228, 55.328] },
+
+        { type: 'bus', line: 'Various', name: 'Gold Souq Bus Station', coords: [25.2718, 55.2974] },
+        { type: 'bus', line: 'Various', name: 'Al Ghubaiba Bus Station', coords: [25.2640, 55.2952] },
+        { type: 'bus', line: 'Various', name: 'Deira City Centre Bus Stn', coords: [25.2520, 55.3338] },
+        { type: 'bus', line: 'Various', name: 'Union Square Bus Station', coords: [25.264, 55.314] },
+        { type: 'bus', line: '8', name: 'Ibn Battuta Bus Station', coords: [25.048, 55.118] }
+    ];
+
+    const TILE_LAYER_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+    const TILE_LAYER_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+    const state = {
+      isLoggedIn: false, // **FIXED:** This will be set to true on load
+      page: 'home',
+      view: { screen: 'planner', data: null }, 
+      points: 1250,
+      modalMessage: null,
+      fromCoords: null,
+      toCoords: null,
+      fromName: '', 
+      toName: '',   
+      profile: {   
+        name: 'Mohammad Ibrahim',
+        walletBalance: 28.50
+      },
+      history: [   
+        { id: 'h1', type: 'metro', details: 'Burj Khalifa/Dubai Mall to Union', time: 'Today, 9:05 AM', cost: 5.00 },
+        { id: 'h2', type: 'bus', line: '29', details: 'Gold Souq to Al Ghubaiba', time: 'Yesterday, 6:30 PM', cost: 3.00 },
+        { id: 'h3', type: 'metro', details: 'Mall of the Emirates to Business Bay', time: 'Yesterday, 10:15 AM', cost: 3.00 }
+      ]
+    };
+
+    let homeMap = null, homeFromMarker = null, homeToMarker = null;
+    let resultsMap = null, routingControl = null;
+    let liveMap = null, liveMarkers = [], liveInterval = null;
+    
+    let redeemModal = null; 
+    
+    const appEl = document.getElementById('app');
+
+    function render() {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.page === state.page);
+      });
+      
+      if (!state.isLoggedIn) return renderLogin();
+      
+      cleanupAllMaps();
+      appEl.innerHTML = '';
+
+      if (state.page === 'home') {
+        if (state.view.screen === 'planner') return renderHomePlanner();
+        if (state.view.screen === 'options') return renderRouteOptions();
+        if (state.view.screen === 'map') return renderResultsMapPage();
+        if (state.view.screen === 'search') return renderSearchPage(); // NEW
+      }
+
+      switch (state.page) {
+        case 'map':
+          return renderLiveMap();
+        case 'rewards':
+          return renderRewards();
+        case 'profile':
+          return renderProfile();
+        default:
+          return renderHomePlanner();
+      }
+    }
+    
+    function renderLogin() {
+        // This is where you'd show a login form
+        appEl.innerHTML = `
+            <div class="content-page d-flex flex-column justify-content-center align-items-center p-4">
+                <h2 class="fw-bold mb-3">Welcome to UAQTransit</h2>
+                <p class="text-secondary mb-4">Please log in to continue.</p>
+                <button class="btn btn-primary btn-lg w-100" id="loginBtn">Mock Login</button>
+            </div>
+        `;
+        document.getElementById('loginBtn').onclick = () => {
+            state.isLoggedIn = true;
+            render();
+        };
+    }
+
+    function renderHomePlanner() {
+      appEl.innerHTML = `
+          <div id="map-container"></div>
+          
+          <div class="planner-ui card-app fade-in">
+            <h5 class="fw-bold mb-3">Where to?</h5>
+            
+            <div class="mb-2">
+              <input id="fromInput" class="form-control" type="text" placeholder="From: Search or click map" readonly 
+                    value="${state.fromName || ''}" />
+            </div>
+            <div class="mb-3">
+              <input id="toInput" class="form-control" type="text" placeholder="To: Search or click map" readonly
+                    value="${state.toName || ''}" />
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div class="d-flex gap-2">
+                <button class="saved-place-btn">🏠 Home</button>
+                <button class="saved-place-btn">💼 Work</button>
+              </div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="accessibilityToggle">
+                <label class="form-check-label" for="accessibilityToggle">Step-free</label>
+              </div>
+            </div>
+            
+            <button id="findRouteBtn" class="btn btn-primary w-100 py-2">Find Route</button>
+          </div>
+      `;
+      
+      setupPlannerMap();
+      
+      document.getElementById('fromInput').onclick = () => {
+        showSearchPage('from');
+      };
+      document.getElementById('toInput').onclick = () => {
+        showSearchPage('to');
+      };
+      
+      document.getElementById('findRouteBtn').onclick = () => {
+        if (state.fromCoords && state.toCoords) {
+          state.view = { screen: 'options', data: null };
+          renderRouteOptions();
+        } else {
+          alert("Please set 'From' and 'To' locations.");
+        }
+      };
+    }
+    
+    function formatCoords(coords) {
+      // **FIXED:** Added backticks for template literal
+      return coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : '';
+    }
+    
+    function setupPlannerMap() {
+      if (homeMap) { try { homeMap.remove(); } catch(e){} homeMap = null; }
+      
+      homeMap = L.map('map-container').setView([25.2048, 55.2708], 12);
+      L.tileLayer(TILE_LAYER_URL, { attribution: TILE_LAYER_ATTRIBUTION, subdomains: 'abc' }).addTo(homeMap);
+      
+      loadTransitStops(homeMap);
+
+      if(state.fromCoords) homeFromMarker = L.marker(state.fromCoords).addTo(homeMap).bindPopup("From");
+      if(state.toCoords) homeToMarker = L.marker(state.toCoords).addTo(homeMap).bindPopup("To");
+      
+      homeMap.on('click', (e) => {
+        const coords = e.latlng;
+        const coordName = formatCoords(coords);
+        
+        if (!state.fromCoords || (state.fromCoords && state.toCoords)) {
+          state.fromCoords = coords;
+          state.fromName = coordName;
+          state.toCoords = null;
+          state.toName = ''; 
+          
+          if(homeFromMarker) homeFromMarker.setLatLng(coords);
+          else homeFromMarker = L.marker(coords).addTo(homeMap).bindPopup("<b>From</b>").openPopup();
+          
+          if(homeToMarker) homeToMarker.remove();
+          homeToMarker = null;
+
+        } else if (!state.toCoords) {
+          // Set 'To'
+          state.toCoords = coords;
+          state.toName = coordName; 
+          
+          if(homeToMarker) homeToMarker.setLatLng(coords);
+          else homeToMarker = L.marker(coords).addTo(homeMap).bindPopup("<b>To</b>").openPopup();
+        }
+        
+        document.getElementById('fromInput').value = state.fromName;
+        document.getElementById('toInput').value = state.toName;
+      });
+    }
+    
+    function loadTransitStops(mapInstance) {
+      const icons = {
+        metro: L.divIcon({
+          className: 'transit-stop-icon metro-icon',
+          html: 'M', 
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        }),
+        bus: L.divIcon({
+          className: 'transit-stop-icon bus-icon',
+          html: 'B', 
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        })
+      };
+      
+      MOCK_TRANSIT_STOPS.forEach(stop => {
+        L.marker(stop.coords, { icon: icons[stop.type] })
+          .addTo(mapInstance)
+          // **FIXED:** Added backticks for template literal
+          .bindPopup(`<b>${stop.name}</b><br>${stop.type === 'metro' ? stop.line : ''} Line`);
+      });
+    }
+
+    function showSearchPage(target) {
+      state.view = { screen: 'search', data: { target } };
+      render();
+    }
+
+    function renderSearchPage() {
+      const target = state.view.data.target; // 'from' or 'to'
+      
+      appEl.innerHTML = `
+          <div class="content-page fade-in">
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <button id="backBtnSearch" class="btn btn-sm btn-secondary" title="Back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              </button>
+              <h5 class="mb-0 fw-bold">Set ${target === 'from' ? 'Origin' : 'Destination'}</h5>
+            </div>
+            
+            <input id="searchInput" class="form-control mb-3" type="text" placeholder="Search station or bus stop...">
+            
+            <ul class="nav nav-tabs mb-3" id="stop-tabs">
+              <li class="nav-item"><a class="nav-link active" href="#" data-tab="metro">Dubai Metro</a></li>
+              <li class="nav-item"><a class="nav-link" href="#" data-tab="bus">Bus Stations</a></li>
+            </ul>
+            
+            <div id="search-results-list" style="max-height: 400px; overflow-y: auto;">
+            </div>
+          </div>
+      `;
+
+      const searchInput = document.getElementById('searchInput');
+      const resultsList = document.getElementById('search-results-list');
+      const metroTab = document.querySelector('[data-tab="metro"]');
+      const busTab = document.querySelector('[data-tab="bus"]');
+      let activeTab = 'metro';
+
+      function renderList(filter = '') {
+        resultsList.innerHTML = '';
+        const filteredStops = MOCK_TRANSIT_STOPS
+          .filter(stop => stop.type === activeTab)
+          .filter(stop => stop.name.toLowerCase().includes(filter.toLowerCase()));
+        
+        if (filteredStops.length === 0) {
+          // **FIXED:** Changed JSX <p> to a string
+          resultsList.innerHTML = `<p class="text-center text-secondary p-3">No stations found.</p>`;
+          return;
+        }
+        
+        filteredStops.forEach(stop => {
+          const item = document.createElement('div');
+          item.className = 'search-list-item';
+          item.innerHTML = `
+            <div class="search-list-item-icon">${stop.type === 'metro' ? '🚇' : '🚌'}</div>
+            <div>
+              <div class="fw-bold">${stop.name}</div>
+              <div class="small text-secondary">${stop.line} ${stop.type === 'metro' ? 'Line' : ''}</div>
+            </div>
+          `;
+          item.onclick = () => selectStop(stop);
+          resultsList.appendChild(item);
+        });
+      }
+      
+      function selectStop(stop) {
+        if (target === 'from') {
+          // **FIXED:** Coords need to be in {lat, lng} format for map click consistency
+          state.fromCoords = L.latLng(stop.coords[0], stop.coords[1]); 
+          state.fromName = stop.name;
+        } else {
+          state.toCoords = L.latLng(stop.coords[0], stop.coords[1]);
+          state.toName = stop.name;
+        }
+        state.view.screen = 'planner';
+        render();
+      }
+      
+      metroTab.onclick = (e) => { e.preventDefault(); activeTab = 'metro'; metroTab.classList.add('active'); busTab.classList.remove('active'); renderList(searchInput.value); };
+      busTab.onclick = (e) => { e.preventDefault(); activeTab = 'bus'; busTab.classList.add('active'); metroTab.classList.remove('active'); renderList(searchInput.value); };
+      
+      searchInput.onkeyup = () => renderList(searchInput.value);
+      
+      document.getElementById('backBtnSearch').onclick = () => {
+        state.view.screen = 'planner';
+        render();
+      };
+
+      renderList();
+    }
+
+
+    function renderRouteOptions() {
+      state.page = 'home';
+      
+      const getCongestionClass = (level) => {
+        if (level === 'low') return 'congestion-green';
+        if (level === 'mid') return 'congestion-orange';
+        if (level === 'high') return 'congestion-red';
+        return 'congestion-green';
+      };
+      
+      const renderLegs = (legs) => {
+        return legs.map(leg => {
+          let icon = '🧍';
+          let lineClass = '';
+          if (leg.type === 'metro') { icon = '🚇'; lineClass = 'route-leg-line-metro'; }
+          if (leg.type === 'bus') { icon = '🚌'; lineClass = 'route-leg-line-bus'; }
+          
+          return `
+            <div class="route-leg">
+              <span class="route-leg-icon">${icon}</span>
+              <span class="route-leg-details">
+                <span class="${lineClass}">${leg.line || ''}</span>
+                ${leg.details}
+              </span>
+            </div>
+          `;
+        }).join('<div class="my-1" style="margin-left: 12px; font-size: 8px; color: #ccc;">|</div>');
+      };
+
+      appEl.innerHTML = `
+        <div class="content-page fade-in">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <button id="backBtn" class="btn btn-sm btn-secondary" title="Back">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <h5 class="mb-0 fw-bold">Route Options</h5>
+          </div>
+          
+          <ul class="nav nav-tabs mb-3" id="route-tabs">
+            <li class="nav-item"><a class="nav-link active" href="#" data-tab="transit">Transit</a></li>
+            <li class="nav-item"><a class="nav-link text-secondary" href="#" data-tab="taxi">Taxi</a></li>
+          </ul>
+
+          <div id="transit-options">
+            ${MOCK_ROUTE_OPTIONS.map(route => `
+              <div class="route-option-card" data-route-id="${route.id}">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <h5 class="fw-bold mb-1">${route.time}</h5>
+                    <span class="congestion-badge ${getCongestionClass(route.congestion)}">${route.congestion} traffic</span>
+                  </div>
+                  <span class="points-badge">+${route.points} pts</span>
+                </div>
+                <div class="d-flex flex-column gap-1">
+                  ${renderLegs(route.legs)}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div id="taxi-options" style="display: none;">
+            
+            <div class="taxi-option-card">
+              <div class="d-flex align-items-center gap-3">
+                <div class="taxi-logo" style="color: #000; background: #fff; border: 1px solid #eee;">Uber</div>
+                <div class="flex-fill">
+                  <h6 class="fw-bold mb-0">UberDrive</h6>
+                  <p class="small text-secondary mb-0">3 min wait</p>
+                </div>
+                <div class="text-end">
+                  <h6 class="fw-bold mb-0">AED 25-30</h6>
+                  <p class="small text-secondary mb-0">8 min ride</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="taxi-option-card">
+              <div class="d-flex align-items:center gap-3">
+                <div class="taxi-logo" style="color: #fff; background: #000;">Careem</div>
+                <div class="flex-fill">
+                  <h6 class="fw-bold mb-0">Careem</h6>
+                  <p class="small text-secondary mb-0">2 min wait</p>
+                </div>
+                <div class="text-end">
+                  <h6 class="fw-bold mb-0">AED 28</h6>
+                  <p class="small text-secondary mb-0">8 min ride</p>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('backBtn').onclick = () => {
+        state.view.screen = 'planner';
+        renderHomePlanner();
+      };
+      
+      document.querySelectorAll('.route-option-card').forEach(card => {
+        card.onclick = () => {
+          const routeId = card.dataset.routeId;
+          state.view = { screen: 'map', data: { routeId, from: state.fromCoords, to: state.toCoords } };
+          renderResultsMapPage();
+        };
+      });
+      
+      const transitTab = document.querySelector('[data-tab="transit"]');
+      const taxiTab = document.querySelector('[data-tab="taxi"]');
+      const transitOptions = document.getElementById('transit-options');
+      const taxiOptions = document.getElementById('taxi-options');
+      
+      transitTab.onclick = (e) => {
+        e.preventDefault();
+        transitTab.classList.add('active');
+        transitTab.classList.remove('text-secondary');
+        taxiTab.classList.remove('active');
+        taxiTab.classList.add('text-secondary');
+        
+        transitOptions.style.display = 'block';
+        taxiOptions.style.display = 'none';
+      };
+      
+      taxiTab.onclick = (e) => {
+        e.preventDefault();
+        taxiTab.classList.add('active');
+        taxiTab.classList.remove('text-secondary');
+        transitTab.classList.remove('active');
+        transitTab.classList.add('text-secondary');
+        
+        transitOptions.style.display = 'none';
+        taxiOptions.style.display = 'block';
+      };
+    }
+
+    // **FIXED:** Added implementation for this missing function
+    function renderResultsMapPage() {
+        const data = state.view.data;
+        appEl.innerHTML = `
+            <div class="content-page fade-in">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <button id="backBtnResults" class="btn btn-sm btn-secondary" title="Back">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    </button>
+                    <h5 class="mb-0 fw-bold">Your Route</h5>
+                </div>
+                <div id="results-map-container" class="card-app" style="height: 400px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #ddd;"></div>
+            </div>
+        `;
+        document.getElementById('backBtnResults').onclick = () => {
+            state.view = { screen: 'options', data: null };
+            render();
+        };
+        // Call the setup function
+        setupResultsMap(data); 
+    }
+    
+    // **FIXED:** Added implementation for this missing function
+    function setupResultsMap(data) {
+        if (resultsMap) { try { resultsMap.remove(); } catch(e){} resultsMap = null; }
+        
+        resultsMap = L.map('results-map-container').setView(data.from, 13);
+         L.tileLayer(TILE_LAYER_URL, { attribution: TILE_LAYER_ATTRIBUTION, subdomains: 'abc' }).addTo(resultsMap);
+        
+         // Ensure coords are L.latLng objects
+         const fromLatLng = L.latLng(data.from.lat, data.from.lng);
+         const toLatLng = L.latLng(data.to.lat, data.to.lng);
+
+         routingControl = L.Routing.control({
+            waypoints: [ fromLatLng, toLatLng ],
+            routeWhileDragging: false,
+            show: false, // Hide text instructions
+            addWaypoints: false,
+            lineOptions: {
+                styles: [{color: 'var(--accent-primary)', opacity: 0.8, weight: 6}]
+            },
+            createMarker: function() { return null; } // Don't add default markers
+        }).addTo(resultsMap);
+        
+        // Add custom markers
+        L.marker(fromLatLng).addTo(resultsMap).bindPopup("<b>From</b>");
+        L.marker(toLatLng).addTo(resultsMap).bindPopup("<b>To</b>");
+    }
+
+    // **FIXED:** Completed the truncated function
+    function renderLiveMap() {
+      const getAlertClass = (severity) => {
+        if (severity === 'warning') return 'alert-warning';
+        if (severity === 'danger') return 'alert-danger';
+        return 'alert-info';
+      };
+      
+      const getAlertIcon = (type) => (type === 'metro' ? '🚇' : '🚌');
+
+      appEl.innerHTML = `
+        <div class="content-page fade-in">
+          <h4 class="fw-bold mb-3">Live Map</h4>
+          <div class="mb-3 card-app" style="overflow:hidden; height: 300px; border: 1px solid #ddd;">
+            <div id="liveMapContainer" style="height:100%; width:100%;"></div>
+          </div>
+          
+          <h5 class="fw-bold mb-3">Live Alerts</h5>
+          <div id="alerts-list">
+            ${MOCK_ALERTS.map(alert => `
+                <div class="alert ${getAlertClass(alert.severity)} d-flex gap-2">
+                    <span style="font-size: 1.2rem;">${getAlertIcon(alert.type)}</span>
+                    <div>
+                        <strong class="d-block">${alert.line}</strong>
+                        ${alert.message}
+                    </div>
+                </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      
+      setupLiveMap();
+    }
+    
+    // **FIXED:** Added new helper for renderLiveMap
+    function setupLiveMap() {
+        if (liveMap) { try { liveMap.remove(); } catch(e){} liveMap = null; }
+        
+        liveMap = L.map('liveMapContainer').setView([25.2048, 55.2708], 12);
+        L.tileLayer(TILE_LAYER_URL, { attribution: TILE_LAYER_ATTRIBUTION, subdomains: 'abc' }).addTo(liveMap);
+        
+        loadTransitStops(liveMap);
+        
+        // TODO: Add live vehicle markers and interval
+    }
+
+    // **FIXED:** Added implementation for missing function
+    function renderRewards() {
+        appEl.innerHTML = `
+            <div class="content-page fade-in">
+                <h4 class="fw-bold mb-3">Rewards</h4>
+                <div class="card-app p-3 mb-3 text-center">
+                    <h6 class="text-secondary mb-0">My Points</h6>
+                    <h2 class="fw-bold" style="color: var(--accent-primary);">${state.points}</h2>
+                </div>
+                
+                ${MOCK_REWARDS.map(r => `
+                    <div class="card-app p-3 mb-2 d-flex justify-content-between align-items-center">
+                        <div class="d-flex gap-3 align-items-center">
+                            <span style="font-size: 1.5rem;">${r.icon}</span>
+                            <div>
+                                <h6 class="fw-bold mb-0">${r.title}</h6>
+                                <small class="text-secondary">${r.partner || 'Transit Reward'}</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-primary" ${state.points < r.points ? 'disabled' : ''} 
+                                data-reward-id="${r.id}"
+                                onclick="redeemReward('${r.id}', '${r.title}', ${r.points})">
+                            ${r.points} pts
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    // **FIXED:** Added new helper for renderRewards
+    function redeemReward(id, title, points) {
+        if (state.points < points) return; // Should be disabled, but double-check
+        
+        // state.points -= points; // Deduct points in a real app
+        // render(); // Re-render to show updated points
+        
+        console.log("Redeeming:", id, title);
+        
+        // Mock QR/Barcode data
+        document.getElementById('redeemModalLabel').innerText = `Redeem: ${title}`;
+        document.getElementById('qrCodeImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(id);
+        document.getElementById('barcodeImg').src = 'https://barcode.tec-it.com/barcode.ashx?data=' + encodeURIComponent(id) + '&code=Code128&dpi=96';
+        
+        redeemModal.show();
+    }
+
+    // **FIXED:** Added implementation for missing function
+    function renderProfile() {
+        appEl.innerHTML = `
+            <div class="content-page fade-in">
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <img src="Personal Pic.jpg" alt="Profile" class="avatar-large">
+                    <div>
+                        <h4 class="fw-bold mb-0">${state.profile.name}</h4>
+                        <p class="text-secondary mb-0">Nol Card Balance: <strong>AED ${state.profile.walletBalance.toFixed(2)}</strong></p>
+                    </div>
+                </div>
+                
+                <h5 class="fw-bold mb-3">Trip History</h5>
+                <div class="list-group mb-4">
+                    ${state.history.map(h => `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-bold">${h.type === 'metro' ? '🚇' : '🚌'} ${h.details}</span>
+                                <span class="fw-bold">-AED ${h.cost.toFixed(2)}</span>
+                            </div>
+                            <small class="text-secondary">${h.time}</small>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <button class="btn btn-outline-danger w-100" id="logoutBtn">Log Out</button>
+            </div>
+        `;
+        
+        document.getElementById('logoutBtn').onclick = () => {
+            state.isLoggedIn = false;
+            state.page = 'home';
+            state.view = { screen: 'planner', data: null };
+            render(); 
+        };
+    }
+
+    // **FIXED:** Added implementation for missing function
+    function cleanupAllMaps() {
+      // This function is crucial to prevent Leaflet errors when re-rendering
+      if (homeMap) { try { homeMap.remove(); } catch(e){} homeMap = null; }
+      if (resultsMap) { try { resultsMap.remove(); } catch(e){} resultsMap = null; }
+      if (liveMap) { try { liveMap.remove(); } catch(e){} liveMap = null; }
+      if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+    }
+    
+    // --- App Initialization ---
+    // **FIXED:** Added this entire block to start the app
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Bootstrap modal
+        if (document.getElementById('redeemModal')) {
+            redeemModal = new bootstrap.Modal(document.getElementById('redeemModal'));
+        }
+        
+        // Setup navigation
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.onclick = () => {
+                state.page = btn.dataset.page;
+                // Reset home view when navigating away/back
+                if (state.page === 'home') {
+                    state.view = { screen: 'planner', data: null };
+                }
+                render();
+            };
+        });
+        
+        // Set initial state for demo (set to true to skip login)
+        state.isLoggedIn = true;
+        state.page = 'home';
+        
+        // Initial render
+        render();
+    });
+    
+  </script>
+</body>
+</html>
