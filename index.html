@@ -354,11 +354,20 @@
 
   <script> 
     const MOCK_REWARDS = [
-      { id: 'r1', type: 'partner', title: '15% off at % Arabica', partner: 'Arabica Cafe', points: 500, icon: '☕' },
-      { id: 'r2', type: 'partner', title: 'AED 20 off at Union Coop', partner: 'Union Cooperative', points: 1000, icon: '🛒' },
-      { id: 'r3', type: 'partner', title: '10% off at Pull & Bear', partner: 'Pull & Bear', points: 750, icon: '👕' },
-      { id: 'r4', type: 'transit', title: '1 Free Metro Ride', points: 300, icon: '🚇' },
-      { id: 'r5', type: 'partner', title: 'AED 5 Ride Credit', partner: 'Careem', points: 400, icon: '🚗' }
+      { id: 'r1', type: 'partner', title: '15% off at % Arabica', partner: 'Arabica Cafe', points: 500, icon: '☕', 
+      redeemUrl: 'https://youtu.be/dQw4w9WgXcQ?si=eoyxQ0kcOs-XYiyz' }, // I left your link for this one :)
+      
+    { id: 'r2', type: 'partner', title: 'AED 20 off at Union Coop', partner: 'Union Cooperative', points: 1000, icon: '🛒',
+      redeemUrl: 'https://www.unioncoop.ae' },
+      
+    { id: 'r3', type: 'partner', title: '10% off at Pull & Bear', partner: 'Pull & Bear', points: 750, icon: '👕',
+      redeemUrl: 'https://www.pullandbear.com' },
+      
+    { id: 'r4', type: 'transit', title: '1 Free Metro Ride', points: 300, icon: '🚇',
+      redeemUrl: 'https://www.rta.ae' },
+      
+    { id: 'r5', type: 'partner', title: 'AED 5 Ride Credit', partner: 'Careem', points: 400, icon: '🚗',
+      redeemUrl: 'https://www.careem.com' }
     ];
     
     const MOCK_ALERTS = [
@@ -372,16 +381,16 @@
     const MOCK_CHALLENGE = { /* ... */ };
     
     const MOCK_ROUTE_OPTIONS = [
-        { id: 'r1', time: '28 min', congestion: 'low', points: 15, legs: [
+        { id: 'r1', time: '28 min', congestion: 'high', points: 10, legs: [
             { type: 'walk', details: 'Walk 3 min' },
             { type: 'metro', line: 'Red', details: 'Union to Burj Khalifa (5 stops)' },
             { type: 'walk', details: 'Walk 2 min' }
         ]},
-        { id: 'r2', time: '35 min', congestion: 'mid', points: 10, legs: [
+        { id: 'r2', time: '35 min', congestion: 'mid', points: 16, legs: [
             { type: 'bus', line: '29', details: 'Ghubaiba to Dubai Mall (8 stops)' },
             { type: 'walk', details: 'Walk 5 min' }
         ]},
-        { id: 'r3', time: '42 min', congestion: 'low', points: 10, legs: [
+        { id: 'r3', time: '42 min', congestion: 'low', points: 28, legs: [
             { type: 'bus', line: 'X28', details: 'Union MS to Dubai Mall (4 stops)' }
         ]}
     ];
@@ -435,9 +444,9 @@
         walletBalance: 28.50
       },
       history: [   
-        { id: 'h1', type: 'metro', details: 'Burj Khalifa/Dubai Mall to Union', time: 'Today, 9:05 AM', cost: 5.00 },
-        { id: 'h2', type: 'bus', line: '29', details: 'Gold Souq to Al Ghubaiba', time: 'Yesterday, 6:30 PM', cost: 3.00 },
-        { id: 'h3', type: 'metro', details: 'Mall of the Emirates to Business Bay', time: 'Yesterday, 10:15 AM', cost: 3.00 }
+        { id: 'h1', type: 'metro', details: 'Burj Khalifa/Dubai Mall to Union', time: 'Today, 9:05 AM', cost: 2.00 },
+        { id: 'h2', type: 'bus', line: '29', details: 'Gold Souq to Al Ghubaiba', time: 'Yesterday, 6:30 PM', cost: 5.00 },
+        { id: 'h3', type: 'metro', details: 'Mall of the Emirates to Business Bay', time: 'Yesterday, 10:15 AM', cost: 1.00 }
       ]
     };
 
@@ -450,13 +459,25 @@
     const appEl = document.getElementById('app');
 
     function render() {
-      document.querySelectorAll('.nav-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.page === state.page);
-      });
+      const navBar = document.querySelector('.bottom-nav');
+        if (navBar) {
+        navBar.style.display = state.isLoggedIn ? 'flex' : 'none';
+        }
+        // --- END OF NEW CODE ---**
+
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+         btn.classList.toggle('active', btn.dataset.page === state.page);
+         });
       
       if (!state.isLoggedIn) return renderLogin();
       
-      cleanupAllMaps();
+      function cleanupAllMaps() {
+        // This function is crucial to prevent Leaflet errors when re-rendering
+        if (homeMap) { try { homeMap.remove(); } catch(e){} homeMap = null; }
+        if (resultsMap) { try { resultsMap.remove(); } catch(e){} resultsMap = null; }
+        if (liveMap) { try { liveMap.remove(); } catch(e){} liveMap = null; }
+        if (liveInterval) { clearInterval(liveInterval); liveInterval = null; }
+    }
       appEl.innerHTML = '';
 
       if (state.page === 'home') {
@@ -479,19 +500,55 @@
     }
     
     function renderLogin() {
-        // This is where you'd show a login form
-        appEl.innerHTML = `
-            <div class="content-page d-flex flex-column justify-content-center align-items-center p-4">
-                <h2 class="fw-bold mb-3">Welcome to UAQTransit</h2>
-                <p class="text-secondary mb-4">Please log in to continue.</p>
-                <button class="btn btn-primary btn-lg w-100" id="loginBtn">Mock Login</button>
-            </div>
-        `;
-        document.getElementById('loginBtn').onclick = () => {
+    // This function now renders a real login form
+    appEl.innerHTML = `
+        <div class="content-page d-flex flex-column justify-content-center align-items-center p-4" style="max-width: 400px; margin: 0 auto;">
+            <br><br><h2 class="fw-bold mb-3">Welcome to Masaar</h2>
+            
+            <img src="Masaar Logo.png" style="width: 100px; height: 100px;" class="mb-3"><br><br><br>
+
+            <form id="loginForm" class="w-100">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="usernameInput" placeholder="Username" required>
+                    <label for="usernameInput">Username</label>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="passwordInput" placeholder="Password" required>
+                    <label for="passwordInput">Password</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg w-100" id="loginBtn">Login</button>
+            </form>
+        </div>
+    `;
+
+    // 5. Changed from 'onclick' to 'onsubmit'
+    // This listens for the form submission (either by click or 'Enter' key)
+    document.getElementById('loginForm').onsubmit = (event) => {
+        // Stop the form from causing a page refresh
+        event.preventDefault(); 
+
+        // 6. Get the values from the input fields
+        const username = document.getElementById('usernameInput').value;
+        const password = document.getElementById('passwordInput').value;
+
+        // ---
+        // TODO: Add your real authentication logic here!
+        // For example, check if (username === 'admin' && password === '12345')
+        // Or send the data to a server API for validation.
+        // ---
+
+        // For this example, we'll just log in if the fields are not empty
+        if (username && password) {
+            console.log('Logging in with:', username); // Good for debugging
             state.isLoggedIn = true;
             render();
-        };
-    }
+        } else {
+            alert('Please enter a username and password.');
+        }
+    };
+}
 
     function renderHomePlanner() {
       appEl.innerHTML = `
@@ -954,7 +1011,7 @@
                         </div>
                         <button class="btn btn-sm btn-primary" ${state.points < r.points ? 'disabled' : ''} 
                                 data-reward-id="${r.id}"
-                                onclick="redeemReward('${r.id}', '${r.title}', ${r.points})">
+                                onclick="redeemReward('${r.id}', '${r.title}', ${r.points}, '${r.redeemUrl}')">
                             ${r.points} pts
                         </button>
                     </div>
@@ -964,21 +1021,29 @@
     }
     
     // **FIXED:** Added new helper for renderRewards
-    function redeemReward(id, title, points) {
-        if (state.points < points) return; // Should be disabled, but double-check
-        
-        // state.points -= points; // Deduct points in a real app
-        // render(); // Re-render to show updated points
-        
-        console.log("Redeeming:", id, title);
-        
-        // Mock QR/Barcode data
-        document.getElementById('redeemModalLabel').innerText = `Redeem: ${title}`;
-        document.getElementById('qrCodeImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(id);
-        document.getElementById('barcodeImg').src = 'https://barcode.tec-it.com/barcode.ashx?data=' + encodeURIComponent(id) + '&code=Code128&dpi=96';
-        
-        redeemModal.show();
-    }
+    // The 4th argument 'destinationLink' now comes from the button's onclick
+function redeemReward(id, title, points, destinationLink) {
+    if (state.points < points) return; // Should be disabled, but double-check
+    
+    state.points -= points; // Deduct points in a real app
+    render(); // Re-render to show updated points
+    
+    // Log the link to make sure it's correct!
+    console.log("Redeeming:", id, title, "Link:", destinationLink);
+    
+    // We don't need baseUrl anymore.
+    // The 'destinationLink' variable is passed directly from the button.
+
+    // Mock QR/Barcode data
+    document.getElementById('redeemModalLabel').innerText = `Redeem: ${title}`;
+
+    // Use encodeURIComponent on the 'destinationLink' variable
+    document.getElementById('qrCodeImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(destinationLink);
+
+    document.getElementById('barcodeImg').src = 'https://barcode.tec-it.com/barcode.ashx?data=' + encodeURIComponent(destinationLink) + '&code=Code128&dpi=96';
+            
+    redeemModal.show();
+}
 
     // **FIXED:** Added implementation for missing function
     function renderProfile() {
@@ -1029,28 +1094,34 @@
     // --- App Initialization ---
     // **FIXED:** Added this entire block to start the app
     document.addEventListener('DOMContentLoaded', () => {
-        // Initialize Bootstrap modal
-        if (document.getElementById('redeemModal')) {
-            redeemModal = new bootstrap.Modal(document.getElementById('redeemModal'));
+        // 1. Initialize Bootstrap modal
+        // This finds the modal in your HTML and makes it controllable via JavaScript
+        const modalEl = document.getElementById('redeemModal');
+        if (modalEl) {
+            redeemModal = new bootstrap.Modal(modalEl);
+        } else {
+            console.error("Could not find #redeemModal in your HTML.");
         }
         
-        // Setup navigation
+        // 2. Setup navigation button clicks
+        // This makes your bottom navbar buttons work
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.onclick = () => {
-                state.page = btn.dataset.page;
-                // Reset home view when navigating away/back
-                if (state.page === 'home') {
-                    state.view = { screen: 'planner', data: null };
+                const page = btn.dataset.page;
+                if (page) {
+                    state.page = page;
+                    // Reset the 'home' page view to the planner
+                    if (page === 'home') {
+                        state.view = { screen: 'planner', data: null };
+                    }
+                    render();
                 }
-                render();
             };
         });
         
-        // Set initial state for demo (set to true to skip login)
-        state.isLoggedIn = true;
-        state.page = 'home';
-        
-        // Initial render
+        // 3. Initial render
+        // This starts the app. Since state.isLoggedIn is false by default,
+        // this will correctly call renderLogin() first.
         render();
     });
     
